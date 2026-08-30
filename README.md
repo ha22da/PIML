@@ -68,8 +68,7 @@ PIML/
 │   ├── run_pinn_both.py             # Run PINN on Stanford + CALCE
 │   ├── run_transformer_both.py      # Run Transformer on Stanford + CALCE
 │   ├── run_lightgbm_both.py         # Run LightGBM Ensemble on Stanford + CALCE
-│   ├── extract_calce_a123.py        # Feature extraction for CALCE A123
-│   └── generate_comparison_figures.py # Generate publication figures
+│   └── extract_calce_a123.py        # Feature extraction for CALCE A123
 ├── results/                          # All experimental results (REAL outputs)
 │   ├── microphys/                   # MicroPhys-BMS results
 │   │   ├── stanford_25c/{results.json, predictions.csv}
@@ -82,15 +81,7 @@ PIML/
 │   │   └── calce_a123/{results.json, predictions.csv}
 │   ├── lightgbm/                    # LightGBM Ensemble results
 │   │   ├── stanford_25c/{results.json, predictions.csv, model_*.txt}
-│   │   └── calce_a123/{results.json, predictions.csv, model_*.txt}
-│   └── figures/                     # Generated comparison figures (PDF + PNG)
-├── docs/                            # Manuscript and figures
-│   ├── MicroPhys_BMS_IEEE_TTE_10pages.pdf # Final 10-page manuscript
-│   └── figs/                        # Publication-quality figures (PDF)
-└── latex/                           # Complete LaTeX source
-    ├── main.tex
-    ├── references.bib               # 34 references
-    └── sections/                    # All section .tex files
+│   └──   └── calce_a123/{results.json, predictions.csv, model_*.txt}
 ```
 
 ---
@@ -144,18 +135,6 @@ python run_lightgbm_both.py
 **Expected output:**
 - Stanford LFP: MAE 0.394%, RMSE 1.037%, R² 0.9990
 - CALCE A123: MAE 0.231%, RMSE 1.299%, R² 0.9790
-
-### 5. Generate Comparison Figures
-
-```bash
-python generate_comparison_figures.py
-```
-
-Produces:
-- `Figure_7_CDF_Comparison.pdf` — CDF comparison across all 4 models
-- `Figure_8_Hardware_Tradeoff_Comparison.pdf` — Accuracy-complexity trade-off
-- `Figure_9_Cross_Dataset_Comparison.pdf` — Cross-dataset MAE bar chart
-- `Figure_10_Noise_Robustness_Comparison.pdf` — Noise robustness comparison
 
 ---
 
