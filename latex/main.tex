@@ -1,0 +1,50 @@
+\documentclass[lettersize,journal]{IEEEtran}
+
+\usepackage{amsmath,amsfonts,amssymb}
+\usepackage{algorithmic}
+\usepackage{algorithm}
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{subcaption}
+\usepackage{stfloats}
+\usepackage{url}
+\usepackage{graphicx}
+\usepackage{cite}
+\usepackage{balance}
+\usepackage{microtype}
+\usepackage{bm}
+
+% Float Capacity & Layout Optimization for Exact 10-Page Fit
+\setcounter{topnumber}{4}
+\setcounter{bottomnumber}{4}
+\setcounter{totalnumber}{6}
+\setcounter{dbltopnumber}{3}
+
+\renewcommand{\topfraction}{0.95}
+\renewcommand{\bottomfraction}{0.95}
+\renewcommand{\textfraction}{0.05}
+\renewcommand{\floatpagefraction}{0.85}
+\renewcommand{\dbltopfraction}{0.95}
+\renewcommand{\dblfloatpagefraction}{0.85}
+
+\setlength{\textfloatsep}{5pt plus 1pt minus 1pt}
+\setlength{\floatsep}{4pt plus 1pt minus 1pt}
+\setlength{\dbltextfloatsep}{6pt plus 1pt minus 1pt}
+\setlength{\dblfloatsep}{4pt plus 1pt minus 1pt}
+
+\graphicspath{{figs/}{fig/}{../figs/}{../fig/}}
+
+\hyphenation{op-tical net-works semi-conduc-tor IEEE-Xplore micro-controller MicroPhys-BMS}
+
+\begin{document}
+	
+	\input{sections/00_frontmatter.tex}
+	\input{sections/01_nomenclature.tex}
+	\input{sections/sec1_introduction.tex}
+	\input{sections/sec2_methodology.tex}
+	\input{sections/sec3_results.tex}
+	\input{sections/sec4_conclusion.tex}
+	\input{sections/sec5_backmatter.tex}
+	
+\end{document}

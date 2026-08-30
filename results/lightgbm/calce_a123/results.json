@@ -1,0 +1,15 @@
+{
+  "mae_pct": 0.23145548889504963,
+  "rmse_pct": 1.2993398594286936,
+  "r2": 0.9790474973930603,
+  "parameters": 157500,
+  "n_models": 5,
+  "n_trees_per_model": 500,
+  "total_trees": 2500,
+  "train_samples": 8377,
+  "test_samples": 3591,
+  "noise_mae_pct": 0.267349345099785,
+  "cdf_1pct": 95.57226399331662,
+  "cdf_2pct": 97.57727652464494,
+  "cdf_3pct": 98.24561403508771
+}

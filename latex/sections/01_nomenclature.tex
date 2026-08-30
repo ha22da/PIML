@@ -1,0 +1,35 @@
+\section*{Nomenclature}
+\addcontentsline{toc}{section}{Nomenclature}
+
+\noindent
+{\scriptsize
+	\renewcommand{\arraystretch}{0.78}
+	\begin{tabular}{@{}p{1.15cm}p{5.75cm}@{}}
+		\toprule
+		\multicolumn{2}{@{}l}{\textbf{Variables and Physical Descriptors}} \\
+		\midrule
+		$t, V_{\text{mea}}, V_{10}$ & Rest time (s), measured voltage, $V$ at $t=10$ s (V). \\
+		$\text{SOC}_{\text{mea}}, y_{\text{std}}$ & Coulomb-counted SOC, predicted student SOC. \\
+		$I_m, R, I_{\text{flag}}$ & Pre-rest current (A), dynamic resistance ($\Omega$), direction ($\pm 1$). \\
+		$T_{\text{env}}, \Delta T$ & Ambient temperature and thermal gradient ($^\circ$C). \\
+		$\Delta V_{10}$ & Relaxation overpotential gradient, $V_{\text{mea}}(t) - V_{10}$. \\
+		$\tau_{\text{log}}, P_{\text{ohm}}$ & Diffusion scale $\ln(t+1)$; ohmic dissipation $R \cdot I_m$. \\
+		$\Phi_{\text{Arr}}$ & Arrhenius factor $\exp(-E_a/(R_g T_K))$; $E_a = 35.0$ kJ/mol. \\
+		$X_{\text{raw}}, X_{\text{PIML}}$ & Raw 9-D and physics-informed 12-D feature vectors. \\
+		$y_{\text{true}}, y_{\text{teach}}$ & Ground-truth SOC and teacher soft targets. \\
+		$\mathcal{L}_{\text{PIMD}}$ & Composite physics-informed distillation loss. \\
+		$\alpha, \beta, \lambda_{\text{mse}}, \lambda_{\text{bounds}}$ & Loss weights ($0.40, 0.015, 0.50, 0.02$). \\
+		$\mathbf{W}_l, \mathbf{b}_l, \sigma_{\text{SiLU}}$ & Layer $l$ weights/biases; SiLU $x/(1+e^{-x})$. \\
+		$T_{\text{exec}}, M_{\text{Flash}}, M_{\text{SRAM}}$ & Latency ($\mu$s), Flash and SRAM footprints. \\
+		\midrule
+		\multicolumn{2}{@{}l}{\textbf{Acronyms and Abbreviations}} \\
+		\midrule
+		AFE, ASIL-D & Analog Front-End; Automotive Safety Integrity Level D (ISO 26262). \\
+		BMS, VCU & Battery Management System; Vehicle Control Unit. \\
+		ECM, EKF, GBDT & Equivalent Circuit Model; Extended Kalman Filter; Gradient Boosted Decision Tree. \\
+		LFP, OCV, PIML & Lithium Iron Phosphate; Open-Circuit Voltage; Physics-Informed Machine Learning. \\
+		MAE, RMSE, WCET & Mean Absolute Error; Root-Mean-Square Error; Worst-Case Execution Time. \\
+		MISRA-C & Motor Industry Software Reliability Association (2012). \\
+		\bottomrule
+	\end{tabular}
+}

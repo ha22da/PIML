@@ -1,0 +1,226 @@
+\section{Methodology}
+\label{sec:methodology}
+
+\subsection{Physics-Informed Feature Engineering and Relaxation Dynamics}
+\label{sec:meth_a}
+
+Accurate observation of LFP cell state during transient vehicle stops requires capturing multi-time-scale relaxation kinetics \cite{sorouri2025breaking, xiong2018towards}. In production BMS, real-time measurements are limited to voltage, current, and temperature \cite{waag2014critical, lin2020mcunet}. To establish an electrochemically meaningful input without PDAE solver overhead, the proposed framework transforms raw 9-D telemetry $X_{\text{raw}} \in \mathbb{R}^9$ into 12-D physics-informed descriptors $X_{\text{PIML}} \in \mathbb{R}^{12}$.
+
+\subsubsection{Two-Phase Coexistence and Electrochemical Kinetics}
+In Lithium Iron Phosphate cathode materials, intercalation and deintercalation proceed via a first-order phase transformation between two distinct ordered crystal phases: the lithium-rich triphylite ($\text{LiFePO}_4$) and lithium-poor heterosite ($\text{FePO}_4$) phases. The open-circuit equilibrium potential $V_{\text{ocv}}$ is governed by the difference in chemical potentials between the positive and negative active particles:
+\begin{equation}
+	\label{eq:chemical_potential}
+	V_{\text{ocv}}(\text{SOC}, T_K) = -\frac{\mu_{\text{cathode}}(\text{SOC}, T_K) - \mu_{\text{anode}}(\text{SOC}, T_K)}{F},
+\end{equation}
+where $F = 96485.33\ \text{C/mol}$ is Faraday's constant. Across the extensive two-phase coexistence region ($0.20 \le \text{SOC} \le 0.80$), the active phase boundary propagates at nearly constant chemical potential ($\mu_{\text{LiFePO}_4} - \mu_{\text{FePO}_4} = \text{const}$), yielding the characteristic flat plateau with $\text{d}V_{\text{ocv}}/\text{d}\text{SOC} \approx 0.10\text{--}0.50\ \text{mV/\%}$.
+
+\subsubsection{Raw Telemetry Measurement Space}
+The raw telemetry vector $X_{\text{raw}}$ encapsulates real-time operational and resting signals recorded at sample tick $t$:
+\begin{equation}
+	\label{eq:raw_feature_vector}
+	X_{\text{raw}} = \left[ t, V_{\text{mea}}, \text{SOC}_{\text{mea}}, V_{10}, I_m, R, I_{\text{flag}}, T_{\text{env}}, \Delta T \right]^T,
+\end{equation}
+where $t$ represents the elapsed resting duration ($30\ \text{s} \le t \le 600\ \text{s}$), $V_{\text{mea}}$ is the measured terminal voltage at time $t$, $\text{SOC}_{\text{mea}}$ denotes the uncorrected preliminary SOC obtained via Coulomb counting integration from the preceding microtrip, $V_{10}$ is the reference terminal voltage recorded at $t = 10\ \text{s}$, $I_m$ is the moving-average pulse current prior to rest cessation, $R$ is the dynamic internal cell resistance, $I_{\text{flag}} \in \{-1, +1\}$ denotes the current direction indicator ($-1$ for charge, $+1$ for discharge), $T_{\text{env}}$ is the ambient environmental temperature ($^\circ\text{C}$), and $\Delta T = T_{\text{cell}} - T_{\text{env}}$ is the surface-to-ambient thermal gradient.
+
+\subsubsection{Electrochemical Derivations of Physical Descriptors}
+Directly feeding raw telemetry $X_{\text{raw}}$ into conventional neural estimators results in poor cross-cell and multi-temperature generalization due to unmodeled non-linear phase-boundary propagation and concentration polarization delays \cite{sorouri2025breaking, wang2025lifepo4}. To capture the underlying electrochemistry, four domain-guided transformations are derived:
+
+\begin{enumerate}
+	\item \textbf{Differential Relaxation Overpotential Gradient ($\Delta V_{10}$):}
+	Following load current interruption, the instantaneous terminal voltage $V(t)$ is governed by the superposition of equilibrium potential $V_{\text{ocv}}$, instantaneous ohmic drop $I R_0$, solid-electrolyte interphase (SEI) charge-transfer overpotentials $\eta_{\text{ct}}(t)$, and solid-phase diffusion overpotentials $\eta_{\text{diff}}(t)$:
+	\begin{equation}
+		\label{eq:voltage_decomposition}
+		V(t) = V_{\text{ocv}}(\text{SOC}, T_K) \pm I R_0 \pm \eta_{\text{ct}}(t) \pm \eta_{\text{diff}}(t) + \delta v_{\text{dc}},
+	\end{equation}
+	where $\delta v_{\text{dc}}$ represents sensor calibration offset. Because the ohmic drop collapses instantaneously ($t < 1\ \text{ms}$) and the double-layer capacitance $C_{\text{dl}}$ discharges rapidly ($\tau_{\text{dl}} \approx R_{\text{ct}} C_{\text{dl}} \le 10\ \text{s}$), the voltage at $t = 10\ \text{s}$ serves as a physical boundary anchor isolating pure solid-phase diffusion:
+	\begin{equation}
+		\label{eq:v10_anchor}
+		V_{10} \approx V_{\text{ocv}}(\text{SOC}, T_K) \pm \eta_{\text{diff}}(10\ \text{s}) + \delta v_{\text{dc}}.
+	\end{equation}
+	Defining the differential overpotential gradient as:
+	\begin{equation}
+		\label{eq:delta_v10}
+		\Delta V_{10}(t) = V_{\text{mea}}(t) - V_{10} = \eta_{\text{diff}}(t) - \eta_{\text{diff}}(10\ \text{s}),
+	\end{equation}
+	the common-mode sensor DC offset $\delta v_{\text{dc}}$ and the ohmic step $I R_0$ are completely eliminated by algebraic cancellation, yielding a clean overpotential recovery signature invariant to sensor calibration drift.
+	
+	\item \textbf{Logarithmic Diffusion Relaxation Time Scale ($\tau_{\text{log}}$):}
+	Solid-phase lithium transport within spherical active electrode particles of radius $R_p$ is governed by Fick's second law of diffusion in spherical coordinates:
+	\begin{equation}
+		\label{eq:fick_diffusion}
+		\frac{\partial c_s(r, t)}{\partial t} = D_s \left( \frac{\partial^2 c_s(r, t)}{\partial r^2} + \frac{2}{r} \frac{\partial c_s(r, t)}{\partial r} \right),
+	\end{equation}
+	where $c_s(r, t)$ is solid lithium concentration and $D_s$ is solid-phase diffusion coefficient. According to Crank's analytical series solution, the volumetric mean concentration $\bar{c}_s(t)$ approaches surface equilibrium as $1 - (6/\pi^2)\sum_{n=1}^{\infty} n^{-2} \exp(-n^2 \pi^2 D_s t / R_p^2)$. For $t \ge 30\ \text{s}$, the leading exponential dominates, yielding logarithmic decay $\eta_{\text{diff}}(t) \propto \ln(t / \tau_{\text{diff}})$. To linearize this across $t \in [30, 600]\ \text{s}$, the logarithmic diffusion scale is $\tau_{\text{log}}(t) = \ln(t + 1.0)$, providing a linearized diffusion coordinate. This compresses the dynamic range of the temporal domain and provides the neural estimator with a linearized diffusion coordinate.
+	
+	\item \textbf{Dynamic Ohmic Polarization Dissipation ($P_{\text{ohm}}$):}
+	The magnitude of non-equilibrium concentration polarization generated during the active microtrip is directly proportional to the product of dynamic internal impedance and load current excitation:
+	\begin{equation}
+		\label{eq:p_ohm}
+		P_{\text{ohm}} = R \cdot I_m,
+	\end{equation}
+	which acts as a proxy for the total Joule dissipation and overpotential accumulation incurred prior to current cessation.
+	
+	\item \textbf{Arrhenius Electrochemical Kinetics Factor ($\Phi_{\text{Arr}}$):}
+	Charge-transfer resistance and solid-state lithium diffusivity are strongly temperature-dependent, governed by the Butler-Volmer exchange current density $i_0(T_K)$ and Arrhenius reaction rate law:
+	\begin{equation}
+		\label{eq:arrhenius_derivation}
+		i_0(T_K) = i_{0,\text{ref}} \exp\left( -\frac{E_a}{R_g} \left( \frac{1}{T_K} - \frac{1}{T_{\text{ref}}} \right) \right),
+	\end{equation}
+	where $E_a = 35.0\ \text{kJ/mol}$ ($35000.0\ \text{J/mol}$) is the fundamental activation energy barrier for lithium deintercalation in olivine $\text{LiFePO}_4$ cathodes, $R_g = 8.314\ \text{J/(mol}\cdot\text{K)}$ is the universal gas constant, and $T_K = T_{\text{env}} + 273.15$ is absolute temperature in Kelvin \cite{rahimirad2019battery, li2026condition}. To embed thermodynamic consistency across wide operational thermal envelopes (ranging from sub-zero to elevated regimes), the Arrhenius descriptor is formulated as:
+	\begin{equation}
+		\label{eq:arrhenius_kinetics}
+		\Phi_{\text{Arr}} = \exp\left( -\frac{E_a}{R_g \cdot (T_{\text{env}} + 273.15)} \right).
+	\end{equation}
+\end{enumerate}
+
+\begin{table}[!t]
+	\caption{Formulation and Significance of the 12 PIML Descriptors ($X_{\text{PIML}}$)}
+	\label{tab:piml_features}
+	\centering
+	\resizebox{\columnwidth}{!}{%
+		\begin{tabular}{cclp{3.8cm}}
+			\toprule
+			\textbf{Index} & \textbf{Symbol} & \textbf{Mathematical Definition} & \textbf{Physical / Electrochemical Domain} \\
+			\midrule
+			$x_1$ & $t$ & Sample tick & Elapsed resting duration ($30\text{--}600\text{ s}$) \\
+			$x_2$ & $V_{\text{mea}}$ & Terminal voltage $V(t)$ & Macroscopic electrical potential \\
+			$x_3$ & $\text{SOC}_{\text{mea}}$ & $\int I \text{d}t / Q_{\text{nom}}$ & Coulomb counting preliminary state \\
+			$x_4$ & $V_{10}$ & $V(t=10\text{ s})$ & Fast double-layer polarization anchor \\
+			$x_5$ & $I_m$ & Pre-rest mean current & Pre-rest dynamic load excitation \\
+			$x_6$ & $R$ & Dynamic resistance $\Delta V / \Delta I$ & Solid-electrolyte interphase impedance \\
+			$x_7$ & $I_{\text{flag}}$ & $\text{sgn}(I_m) \in \{-1, +1\}$ & Charge/discharge directional hysteresis \\
+			$x_8$ & $\Phi_{\text{Arr}}$ & $\exp\left(-\frac{E_a}{R_g T_K}\right)$ & Arrhenius reaction kinetics factor \\
+			$x_9$ & $\Delta T$ & $T_{\text{cell}} - T_{\text{env}}$ & Internal-to-ambient thermal differential \\
+			$x_{10}$ & $\Delta V_{10}$ & $V_{\text{mea}}(t) - V_{10}$ & Solid-phase diffusion overpotential \\
+			$x_{11}$ & $\tau_{\text{log}}$ & $\ln(t + 1.0)$ & Fickian diffusion logarithmic time scale \\
+			$x_{12}$ & $P_{\text{ohm}}$ & $R \cdot I_m$ & Dynamic ohmic polarization dissipation \\
+			\bottomrule
+		\end{tabular}%
+	}
+\end{table}
+
+The resulting 12-dimensional physical descriptor vector is represented compactly in two lines to preserve strict column alignment:
+\begin{equation}
+	\label{eq:piml_vector}
+	\begin{aligned}
+		X_{\text{PIML}} = \big[ & t, V_{\text{mea}}, \text{SOC}_{\text{mea}}, V_{10}, I_m, R, \\
+		& I_{\text{flag}}, \Phi_{\text{Arr}}, \Delta T, \Delta V_{10}, \tau_{\text{log}}, P_{\text{ohm}} \big]^T.
+	\end{aligned}
+\end{equation}
+Prior to model training and inference, each feature dimension $x_j$ is standardized using immutable compile-time mean $\mu_j$ and scale $\sigma_j$ parameters:
+\begin{equation}
+	\label{eq:feature_standardization}
+	\tilde{x}_j = \frac{x_j - \mu_j}{\sigma_j}, \quad j = 1, \dots, 12.
+\end{equation}
+
+\subsection{Offline High-Capacity Teacher Model Architecture}
+\label{sec:meth_b}
+
+To effectively capture the complex, multi-dimensional regression surface governing electrochemical hysteresis and diffusion recovery without run-time computational constraints, an offline high-capacity teacher model is constructed using a Gradient Boosted Decision Tree (GBDT) ensemble via LightGBM \cite{ke2017lightgbm}. GBDT algorithms build orthogonal piecewise-constant decision boundaries that naturally handle heterogeneous feature distributions and non-linear interactions across diverse operating states.
+
+\subsubsection{Ensemble Formulation and Tree-Boosting Dynamics}
+The teacher estimator $\mathcal{T}(X) = f_0(X) + \sum_{m=1}^{M} \eta_{\text{lr}} h_m(X)$ is an additive ensemble of $M = 300$ regression trees, where $f_0(X)$ is the initial prediction, $\eta_{\text{lr}} = 0.03$ is the shrinkage learning rate, and $h_m(X)$ is the $m$-th regression tree. At each boosting iteration, the objective is approximated via second-order Taylor expansion with structural complexity penalty $\Omega(h_m) = \gamma T_{\text{leaf}} + \frac{1}{2}\lambda_{L_2}\sum_j w_{m,j}^2$ ($T_{\text{leaf}}$: leaf count; $w_{m,j}$: leaf-$j$ score; $\lambda_{L_2} = 0.01$ suppresses leaf variance under sensor noise). The optimal leaf weight evaluates analytically to $w_j^* = -\sum_{i \in I_j} g_i / (\sum_{i \in I_j} h_i + \lambda_{L_2})$, where $g_i$ and $h_i$ are the first- and second-order loss gradients. Hyperparameters: $M = 300$ trees, $d_{\max} = 8$, $\eta_{\text{lr}} = 0.03$, $N_{\text{leaf}} \ge 20$. Once trained, the teacher generates continuous softened targets $y_{\text{teach}} = \mathcal{T}(X_{\text{raw}}) \in [0.0, 1.0]$ providing smoothed optimization surfaces for the student network.
+
+\subsection{Robust Hybrid Physics-Calibrated Distillation Loss}
+\label{sec:meth_c}
+
+Optimizing deep neural networks solely with standard Mean Squared Error (MSE) on tabular battery telemetry often leads to gradient destabilization and overfitting on localized sensor noise \cite{karniadakis2021physics, li2026condition}. In the proposed \textit{MicroPhys-BMS} framework, student parameter convergence is governed by a composite, multi-objective physics-informed distillation loss $\mathcal{L}_{\text{PIMD}}$:
+\begin{equation}
+	\label{eq:total_piml_loss}
+	\mathcal{L}_{\text{PIMD}} = (1 - \alpha) \mathcal{L}_{\text{task}} + \alpha \mathcal{L}_{\text{distill}} + \lambda_{\text{bounds}} \mathcal{L}_{\text{bounds}},
+\end{equation}
+where $\alpha = 0.40$ represents the knowledge distillation balancing factor, $\mathcal{L}_{\text{task}}$ denotes the multi-component supervised task loss, $\mathcal{L}_{\text{distill}}$ is the soft supervisory distillation objective, and $\mathcal{L}_{\text{bounds}}$ enforces physical boundary constraints scaled by $\lambda_{\text{bounds}} = 0.02$.
+
+\subsubsection{Adaptive Multi-Component Task Loss Formulation}
+The supervised task loss $\mathcal{L}_{\text{task}} = \mathcal{L}_{\text{Huber}}(y_{\text{std}}, y_{\text{true}}) + \lambda_{\text{mse}} \mathcal{L}_{\text{MSE}}(y_{\text{std}}, y_{\text{true}})$ couples Smooth-$L_1$ adaptive Huber loss with auxiliary MSE ($\lambda_{\text{mse}} = 0.50$). The Huber loss $\mathcal{L}_{\text{Huber}}(u, v) = N^{-1}\sum_i \psi_\beta(u_i - v_i)$ uses a piecewise kernel ($\beta = 0.015$):
+\begin{equation}
+	\label{eq:huber_kernel}
+	\psi_\beta(e) = \begin{cases} 0.5 e^2 / \beta, & |e| \le \beta; \\ |e| - 0.5\beta, & \text{otherwise}. \end{cases}
+\end{equation}
+For small residuals ($|e| \le \beta$), quadratic derivatives provide smooth gradient descent; for $|e| > \beta$, the linear slope bounds $|\partial \psi_\beta / \partial e| = 1.0$, preventing outlier noise from destabilizing convergence.
+
+\subsubsection{Soft Distillation and Physical Boundary Penalties}
+Knowledge transfer from the GBDT teacher is achieved by penalizing the Huber discrepancy between student predictions and teacher soft logits:
+\begin{equation}
+	\label{eq:distill_loss}
+	\mathcal{L}_{\text{distill}} = \mathcal{L}_{\text{Huber}}(y_{\text{std}}, y_{\text{teach}}).
+\end{equation}
+To strictly enforce thermodynamic validity, a quadratic physical boundary penalty $\mathcal{L}_{\text{bounds}}$ is integrated directly into the backpropagation graph:
+\begin{equation}
+	\label{eq:bounds_loss}
+	\mathcal{L}_{\text{bounds}} = \frac{1}{N} \sum_{i=1}^{N} \left[ \max(0, -y_{\text{std},i})^2 + \max(0, y_{\text{std},i} - 1.0)^2 \right].
+\end{equation}
+Whenever student predictions $y_{\text{std}}$ stray beyond the physically admissible corridor $[0.0, 1.0]$, $\mathcal{L}_{\text{bounds}}$ exerts restoring forces driving weights into the valid state domain.
+
+Combining \eqref{eq:total_piml_loss}--\eqref{eq:bounds_loss}, the complete physics-informed distillation objective evaluates to:
+\begin{align}
+	\label{eq:full_piml_loss_expanded}
+	\mathcal{L}_{\text{PIMD}} = & (1 - \alpha) \left[ \mathcal{L}_{\text{Huber}}(y_{\text{std}}, y_{\text{true}}) + \lambda_{\text{mse}} \mathcal{L}_{\text{MSE}}(y_{\text{std}}, y_{\text{true}}) \right] \nonumber \\
+	& + \alpha \mathcal{L}_{\text{Huber}}(y_{\text{std}}, y_{\text{teach}}) + \lambda_{\text{bounds}} \mathcal{L}_{\text{bounds}},
+\end{align}
+parameterized with $\alpha = 0.40$, $\beta = 0.015$, $\lambda_{\text{mse}} = 0.50$, and $\lambda_{\text{bounds}} = 0.02$. Optimization utilizes AdamW ($\eta = 5.0 \times 10^{-3}$, weight decay $1.0 \times 10^{-4}$) scheduled via cosine annealing over 400 epochs with gradient norm clipping ($\|\nabla_\theta\| \le 1.0$).
+
+\subsection{Student Micro-MLP Architecture and Bounded Output Projection}
+\label{sec:meth_d}
+
+To ensure real-time execution feasibility within strict automotive microcontroller cycles, the student model must feature minimal parameterization while retaining sufficient non-linear depth to emulate the teacher regression surface \cite{lin2020mcunet}. In the proposed \textit{MicroPhys-BMS} framework, the student network is realized as a compact feedforward Micro-MLP structured across three dense projections with Sigmoid Linear Unit ($\text{SiLU}$) activations.
+
+\subsubsection{Layer Topology and Exact Parameter Derivation}
+As illustrated in Fig.~\ref{fig:framework_overview}(c), the student Micro-MLP follows a $12 \to 32 \to 16 \to 1$ layer topology:
+\begin{enumerate}
+	\item \textbf{Input Standardization Layer:} Accepts standardized feature vector $\tilde{X}_{\text{PIML}} \in \mathbb{R}^{12}$.
+	\item \textbf{Hidden Layer 1 ($\mathbf{W}_1, \mathbf{b}_1$):} Projects $12$ inputs into $32$ latent nodes:
+	\begin{equation}
+		\label{eq:mlp_layer1}
+		\mathbf{a}_1 = \sigma_{\text{SiLU}}\left( \mathbf{W}_1 \tilde{X}_{\text{PIML}} + \mathbf{b}_1 \right),
+	\end{equation}
+	where $\mathbf{W}_1 \in \mathbb{R}^{32 \times 12}$ ($384$ weights) and $\mathbf{b}_1 \in \mathbb{R}^{32}$ ($32$ biases), totaling $416$ parameters.
+	\item \textbf{Hidden Layer 2 ($\mathbf{W}_2, \mathbf{b}_2$):} Compresses $32$ activations into $16$ hidden nodes:
+	\begin{equation}
+		\label{eq:mlp_layer2}
+		\mathbf{a}_2 = \sigma_{\text{SiLU}}\left( \mathbf{W}_2 \mathbf{a}_1 + \mathbf{b}_2 \right),
+	\end{equation}
+	where $\mathbf{W}_2 \in \mathbb{R}^{16 \times 32}$ ($512$ weights) and $\mathbf{b}_2 \in \mathbb{R}^{16}$ ($16$ biases), totaling $528$ parameters.
+	\item \textbf{Output Layer ($\mathbf{W}_3, b_3$):} Maps $16$ latent features into an unconstrained state logit:
+	\begin{equation}
+		\label{eq:mlp_layer3}
+		\hat{z}_{\text{out}} = \mathbf{W}_3 \mathbf{a}_2 + b_3,
+	\end{equation}
+	where $\mathbf{W}_3 \in \mathbb{R}^{1 \times 16}$ ($16$ weights) and $b_3 \in \mathbb{R}$ ($1$ bias), totaling $17$ parameters.
+\end{enumerate}
+Summing all weight tensors and bias vectors yields an exact model parameter footprint of:
+Summing all weight tensors and bias vectors yields $N_{\text{param}} = (12\times 32+32) + (32\times 16+16) + (16+1) = 961$, requiring only $3.75\ \text{kB}$ Flash under 32-bit FP32 arithmetic.
+This lightweight footprint requires only $3.75\ \text{kB}$ Flash memory under standard 32-bit floating-point (FP32) arithmetic, ensuring compatibility with entry-level automotive microcontrollers.
+
+The continuous derivatives of $\text{SiLU}$, $\sigma_{\text{SiLU}}(x) = x/(1+e^{-x})$, match the smooth diffusion kinetics of LFP cells. Thermodynamic validity is enforced via output clamping $y_{\text{std}} = \min(\max(\hat{z}_{\text{out}}, 0.0), 1.0)$, confining the predicted SOC within $[0.0, 1.0]$.
+
+\subsection{MISRA-C Compliant Static Deployment Pipeline}
+\label{sec:meth_e}
+
+Deploying neural network estimators onto automotive electronic control units (ECUs) requires strict adherence to functional safety and deterministic execution standards governed by ISO 26262 ASIL-D and MISRA-C:2012 guidelines \cite{yahyaei2023embedded}. Conventional ML runtimes introduce dynamic heap allocation (\texttt{malloc}, \texttt{free}) and pointer indirection that violate safety-critical automotive software rules \cite{yahyaei2023embedded}.
+
+To ensure seamless production-grade integration, the proposed \textit{MicroPhys-BMS} framework features an automated C code synthesis engine compiling the trained student Micro-MLP and feature standardizer into a self-contained C header file (\texttt{bms\_soc\_piml\_mlp3.h}).
+
+\subsubsection{Static Memory Footprint and Zero-Malloc Architecture}
+All parameters and scaling vectors are immutable compile-time constants (\texttt{static const float}) in Flash, totaling $M_{\text{Flash}} = (961 + 24) \times 4 \approx 3.75\ \text{kB}$. All activations are stack-allocated ($192\ \text{Bytes}$ SRAM), eliminating dynamic allocation (\texttt{malloc}). The inference routine (Algorithm~\ref{alg:c_code}) executes in $T_{\text{exec}} \approx 12.0\ \mu\text{s}$ on ARM Cortex-M4 at $160\ \text{MHz}$ ($<0.12\%$ of a $10\ \text{ms}$ BMS cycle), satisfying ISO 26262 ASIL-D constraints \cite{yahyaei2023embedded}.
+
+\begin{algorithm}[!t]
+	\caption{Deterministic MISRA-C Routine in \texttt{bms\_soc\_piml\_mlp3.h}}
+	\label{alg:c_code}
+	\begin{algorithmic}[1]
+		\scriptsize
+		\REQUIRE $x_{\text{raw}}[9]$: Raw input $[t, V_{\text{mea}}, \text{SOC}_{\text{mea}}, V_{10}, I_m, R, I_{\text{flag}}, T_{\text{env}}, \Delta T]$
+		\ENSURE Physical SOC estimate $y_{\text{soc}} \in [0.0, 1.0]$
+		\STATE $x_{\text{piml}}[0\dots8] \leftarrow x_{\text{raw}}[0\dots8]$;\ $x_{\text{piml}}[7] \leftarrow \exp(-35000/(8.314(x_{\text{raw}}[7]+273.15)))$
+		\STATE $x_{\text{piml}}[9] \leftarrow x_{\text{raw}}[1]-x_{\text{raw}}[3]$;\ $x_{\text{piml}}[10] \leftarrow \ln(x_{\text{raw}}[0]+1)$;\ $x_{\text{piml}}[11] \leftarrow x_{\text{raw}}[5]\cdot x_{\text{raw}}[4]$
+		\STATE Standardize: $x_s[i] \leftarrow (x_{\text{piml}}[i]-\mu_i)/\sigma_i$,\ $i=0\dots11$
+		\FOR{$j = 0$ \TO $31$}
+		\STATE $a_1[j] \leftarrow \sigma_{\text{SiLU}}(b_1[j] + \sum_i W_1[j][i] x_s[i])$
+		\ENDFOR
+		\FOR{$k = 0$ \TO $15$}
+		\STATE $a_2[k] \leftarrow \sigma_{\text{SiLU}}(b_2[k] + \sum_j W_2[k][j] a_1[j])$
+		\ENDFOR
+		\STATE $y_{\text{soc}} \leftarrow \min(\max(b_3 + \sum_k W_3[k] a_2[k], 0), 1)$ \COMMENT{ASIL-D Clamp}
+		\RETURN $y_{\text{soc}}$
+	\end{algorithmic}
+\end{algorithm}

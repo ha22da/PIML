@@ -1,0 +1,107 @@
+\section{Results and Discussion}
+\label{sec:results}
+
+\subsection{Nominal Performance at 25$^\circ$C and Relaxation Dynamics}
+\label{sec:res_a}
+
+Evaluated on the nominal $25^\circ\text{C}$ dataset with $70\%/30\%$ split, the 300-tree LightGBM teacher achieves MAE $= 0.488\%$ \cite{ke2017lightgbm}. Following the physics-calibrated distillation procedure, the 961-parameter student Micro-MLP records MAE $= 0.454\%$ and RMSE $= 1.236\%$ ($R^2 = 0.9986$), surpassing the teacher while using $>99.7\%$ fewer parameters. Smooth-$L_1$ Huber distillation filters tree-based step discontinuities, while physical descriptors ($\Delta V_{10}$, $\tau_{\text{log}}$, $P_{\text{ohm}}$) provide inductive bias preventing overfitting. As shown in Fig.~\ref{fig:nominal_and_rest}(a), predictions align tightly along the identity diagonal with zero-mean Gaussian residuals ($\sigma = 0.457\%$).
+
+In EV applications, brief stops ($30$--$600\ \text{s}$) enable Coulomb counting drift reset \cite{che2025enhanced, waag2014critical}. Across rest horizons $t \in \{30, 60, 120, 300, 600\}\ \text{s}$, the student records MAEs of $1.170\%$, $0.787\%$, $0.523\%$, $0.339\%$, and $0.340\%$. As shown in Fig.~\ref{fig:nominal_and_rest}(b), direct $V_{\text{mea}}$ inversion fails catastrophically ($>10\%$ at $30\ \text{s}$), while the Stanford 3-stage RF remains above $2.0\%$ at $60\ \text{s}$ \cite{che2025enhanced}. By incorporating $\Delta V_{10}$ and $\tau_{\text{log}}$, the Micro-MLP back-extrapolates asymptotic diffusion recovery, enabling robust Coulomb counting re-initialization.
+
+\begin{figure*}[!t]
+	\centering
+	\begin{subfigure}[b]{0.48\textwidth}
+		\centering
+		\includegraphics[width=\textwidth]{Figure_3_Parity_and_Error_Density_Ultimate_2.pdf}
+		\caption{Parity correlation and residual density ($25^\circ\text{C}$)}
+		\label{fig:parity_density}
+	\end{subfigure}
+	\hfill
+	\begin{subfigure}[b]{0.48\textwidth}
+		\centering
+		\includegraphics[width=\textwidth]{Figure_4_Resting_Window_Sensitivity_Verified_2.pdf}
+		\caption{Estimation MAE vs. rest horizon duration}
+		\label{fig:rest_sensitivity}
+	\end{subfigure}
+	\caption{Nominal state estimation accuracy and resting horizon convergence. (a) Parity plot showing tight alignment ($R^2 = 0.9986$, $\text{MAE} = 0.454\%$, $\text{RMSE} = 1.236\%$) and zero-mean Gaussian residuals ($\sigma = 0.457\%$). (b) Error convergence across rest durations showing rapid stabilization below the $1.0\%$ commercial target within $60\ \text{s}$.}
+	\label{fig:nominal_and_rest}
+\end{figure*}
+
+\subsection{Cross-Cell Generalization and Telemetry Noise Robustness}
+\label{sec:res_c}
+
+Following Stanford protocols \cite{che2025enhanced}, cells YX01--YX06 were used for training, while YX07 and YX08 served as unseen test targets under shifted profiles across $25^\circ\text{C}$ (Test 7) and $35^\circ\text{C}$ (Test 8). As depicted in Fig.~\ref{fig:gen_and_noise}(a), the student attains MAEs of $2.48\%$ (YX07) and $3.35\%$ (YX08), delivering $42.3\%$ and $22.1\%$ reductions over the Stanford limit ($4.30\%$) \cite{che2025enhanced}. Under multi-temperature stress, the model yields MAE $= 2.312\%$ ($\text{RMSE} = 4.420\%$) at $25^\circ\text{C}$ and $2.689\%$ ($\text{RMSE} = 5.376\%$) at $35^\circ\text{C}$. The minimal deviation ($\Delta \text{MAE} = 0.377\%$) confirms that Arrhenius scaling $\Phi_{\text{Arr}}$ stabilizes tracking across thermal envelopes.
+
+In production BMS, voltage measurements are corrupted by inverter harmonics, EMI, and ADC quantization \cite{waag2014critical, wei2022future, rout2024online}. Under Gaussian noise $V_{\text{mea}}^{\text{noisy}} = V_{\text{mea}} + \delta v$ ($\delta v \sim \mathcal{N}(0, \sigma_v^2)$, $\sigma_v = 5.0\ \text{mV}$), the student maintains MAE $= 1.336\%$, outperforming the LightGBM teacher ($1.820\%$) and standard MLP ($3.240\%$) as shown in Fig.~\ref{fig:gen_and_noise}(b). Differential overpotential anchoring ($\Delta V_{10}$) cancels DC offsets, while Huber's linear regime for $|e| > \beta$ prevents noise spikes from distorting predictions.
+
+\begin{figure*}[!t]
+	\centering
+	\begin{subfigure}[b]{0.48\textwidth}
+		\centering
+		\includegraphics[width=\textwidth]{Figure_5_Unseen_MultiTemp_Generalization_Camera_Ready_V2_2.pdf}
+		\caption{Cross-cell and multi-temperature validation}
+		\label{fig:unseen_multitemp}
+	\end{subfigure}
+	\hfill
+	\begin{subfigure}[b]{0.48\textwidth}
+		\centering
+		\includegraphics[width=\textwidth]{Fig6_AFE_Noise_Robustness_2.pdf}
+		\caption{AFE voltage noise resilience}
+		\label{fig:afe_noise}
+	\end{subfigure}
+	\caption{Cross-cell generalization and sensor noise resilience. (a) Unseen cell validation on cells YX07 and YX08 benchmarked against the Stanford limit ($4.30\%$) across Test~7 ($25^\circ\text{C}$) and Test~8 ($35^\circ\text{C}$). (b) Estimation MAE progression under noise intensity $\sigma_v \in [0, 10]\ \text{mV}$ and error distribution under nominal $5.0\ \text{mV}$ perturbation.}
+	\label{fig:gen_and_noise}
+\end{figure*}
+
+\subsection{Automotive Safety Compliance and Embedded Profiling}
+\label{sec:res_f}
+
+In ISO 26262 ASIL-D qualification \cite{yahyaei2023embedded}, $\ge 95\%$ of estimations must satisfy $|\Delta \text{SOC}| \le 2.0\%$. CDF analysis in Fig.~\ref{fig:comp_and_tradeoff}(a) confirms the student achieves $89.56\%$ within $\le 1.0\%$, $95.94\%$ within $\le 2.0\%$, and $97.56\%$ within $\le 3.0\%$, satisfying safety criteria.
+
+The decisive criterion for production BMS deployment is sub-percent accuracy within microcontroller budgets ($M_{\text{Flash}} \le 16\ \text{kB}$, $T_{\text{exec}} \le 50\ \mu\text{s}$) \cite{yahyaei2023embedded}. On ARM Cortex-M4 at $160\ \text{MHz}$ (Table~\ref{tab:hardware_benchmark}), the Micro-MLP consumes $3.75\ \text{kB}$ Flash and $192\ \text{Bytes}$ SRAM with $12.0\ \mu\text{s}$ latency---a $154.2\times$ acceleration and $>99.7\%$ memory reduction over the Stanford RF baseline ($1420.0\ \text{kB}$, $1850.0\ \mu\text{s}$) \cite{che2025enhanced}, establishing embedded viability.
+
+\begin{figure*}[!t]
+	\centering
+	\begin{subfigure}[b]{0.48\textwidth}
+		\centering
+		\includegraphics[width=\textwidth]{Figure_7_CDF_Authentic_IEEE_2.pdf}
+		\caption{Empirical CDF and compliance breakdown}
+		\label{fig:cdf_analysis}
+	\end{subfigure}
+	\hfill
+	\begin{subfigure}[b]{0.48\textwidth}
+		\centering
+		\includegraphics[width=\textwidth]{Figure_8_Hardware_Accuracy_Tradeoff_Perfect_Final_230L_2.pdf}
+		\caption{Accuracy-complexity trade-off on Cortex-M4}
+		\label{fig:hardware_tradeoff}
+	\end{subfigure}
+	\caption{Automotive safety compliance and embedded execution profiling. (a) Cumulative error distribution verifying $95.94\%$ compliance within $|\Delta \text{SOC}| \le 2.0\%$. (b) Accuracy-complexity design space showing the Micro-MLP residing firmly within the ideal embedded domain (Flash $<16\ \text{kB}$, latency $<50\ \mu\text{s}$, MAE $<0.6\%$).}
+	\label{fig:comp_and_tradeoff}
+\end{figure*}
+
+\subsection{Hardware Profiling, Latency, and Memory Footprint Benchmark}
+\label{sec:res_g}
+
+\begin{table}[!t]
+	\caption{Hardware Benchmark on ARM Cortex-M4 @ 160~MHz}
+	\label{tab:hardware_benchmark}
+	\centering
+	\resizebox{\columnwidth}{!}{%
+		\begin{tabular}{lcccccc}
+			\toprule
+			\textbf{Model Architecture} & \textbf{Params} & \textbf{Flash} & \textbf{SRAM} & \textbf{Latency} & \textbf{Nominal MAE} & \textbf{ASIL-D} \\
+			\midrule
+			Stanford 3-Stage RF \cite{che2025enhanced} & $\approx 60\text{k}$ & $1420\ \text{kB}$ & $\approx 48\ \text{kB}$ & $1850.0\ \mu\text{s}$ & $1.630\%$ & No \\
+			Tabular Transformer \cite{chen2024transformer} & $35.5\text{k}$ & $142.0\ \text{kB}$ & $\approx 18.5\ \text{kB}$ & $1250.0\ \mu\text{s}$ & $1.120\%$ & No \\
+			Vanilla LSTM Baseline \cite{xiong2018towards} & $13.2\text{k}$ & $53.0\ \text{kB}$ & $\approx 6.4\ \text{kB}$ & $480.0\ \mu\text{s}$ & $0.940\%$ & No \\
+			Standard MLP (No KD) & $3.2\text{k}$ & $12.8\ \text{kB}$ & $512\ \text{B}$ & $38.0\ \mu\text{s}$ & $0.980\%$ & Borderline \\
+			PIML Teacher (LightGBM) \cite{ke2017lightgbm} & $\approx 18\text{k}$ & $285.0\ \text{kB}$ & $\approx 12.0\ \text{kB}$ & $720.0\ \mu\text{s}$ & $0.488\%$ & No \\
+			\midrule
+			\textbf{MicroPhys-BMS (Ours)} & \textbf{961} & \textbf{3.75 kB} & \textbf{192 B} & \textbf{12.0} $\boldsymbol{\mu}$\textbf{s} & \textbf{0.454\%} & \textbf{Yes} \\
+			\bottomrule
+		\end{tabular}%
+	}
+\end{table}
+
+The student Micro-MLP was benchmarked against baselines on ARM Cortex-M4 at $160\ \text{MHz}$ (Table~\ref{tab:hardware_benchmark}). The Stanford RF baseline \cite{che2025enhanced} resides in the infeasible domain ($1420.0\ \text{kB}$ Flash, $1850.0\ \mu\text{s}$). Tabular Transformers and LSTM networks yield non-deterministic branching and high RAM, unsuitable for functional safety. In contrast, the proposed Micro-MLP is the only model in the \textit{Ideal Embedded Domain} (Flash $< 16\ \text{kB}$, latency $< 50\ \mu\text{s}$, MAE $< 0.60\%$), achieving $154.2\times$ latency acceleration and $>99.7\%$ memory reduction over ensemble baselines.
+\input{sections/sec3_res_h_comparison.tex}
