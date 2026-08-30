@@ -1,8 +1,7 @@
 """
 Feature extraction for CALCE A123 LFP dataset.
 Uses the Onori Stanford LFP GITT lookup table since both are LFP chemistry.
-
-Output: /home/z/my-project/results/datasets/calce_a123/features.csv
+Fully dynamic path resolution for Windows, Linux, and GitHub repositories.
 """
 import os, sys, glob, logging
 import numpy as np
@@ -12,8 +11,28 @@ from scipy.interpolate import interp1d
 logging.basicConfig(level=logging.INFO, format="[%(asctime)s] [%(levelname)s] %(message)s", datefmt="%H:%M:%S")
 logger = logging.getLogger("CALCE_Extract")
 
-EXTRACT_DIR = "/tmp/calce_extracted/A123_094"
-OUT_CSV = "/home/z/my-project/results/datasets/calce_a123/features.csv"
+# Dynamic root determination
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+REPO_ROOT = os.path.abspath(os.path.join(CURRENT_DIR, ".."))
+
+# Locate CALCE dataset directory dynamically
+POSSIBLE_EXTRACT_DIRS = [
+    os.path.join(REPO_ROOT, "Datasets", "CALCE_A123_LFP", "A123_094", "A123_094"),
+    os.path.join(REPO_ROOT, "datasets", "CALCE_A123_LFP", "A123_094", "A123_094"),
+    r"H:\battery\isi1\MicroPhys_BMS_Complete_Package(2)\Datasets\CALCE_A123_LFP\A123_094\A123_094"
+]
+
+EXTRACT_DIR = None
+for d in POSSIBLE_EXTRACT_DIRS:
+    if os.path.exists(d) and glob.glob(os.path.join(d, "*.xlsx")):
+        EXTRACT_DIR = d
+        break
+
+if EXTRACT_DIR is None:
+    EXTRACT_DIR = POSSIBLE_EXTRACT_DIRS[0]
+
+# Output path for extracted CALCE features
+OUT_CSV = os.path.join(REPO_ROOT, "results", "datasets", "calce_a123", "features.csv")
 os.makedirs(os.path.dirname(OUT_CSV), exist_ok=True)
 
 
@@ -31,8 +50,11 @@ def build_lookup_from_points(ocv_points, soc_points):
 
 
 def load_onori_lfp_gitt():
-    """Load Onori's LFP GITT lookup from existing features CSV."""
-    onori_csv = "/home/z/my-project/work/ieee tte/baseline/features_all_temperatures.csv"
+    """Load Onori's LFP GITT lookup from baseline features CSV."""
+    onori_csv = os.path.join(REPO_ROOT, "baseline", "features_all_temperatures.csv")
+    if not os.path.exists(onori_csv):
+        logger.error(f"Stanford baseline features not found at: {onori_csv}")
+        return None, None
     df = pd.read_csv(onori_csv)
     sub = df[df["Temp_Group"] == "25C"][["OCV_GITT_true", "SOC_true"]].drop_duplicates()
     ocv = sub["OCV_GITT_true"].values
@@ -108,8 +130,12 @@ def extract_features_from_cycling_df(df, time_col, volt_col, curr_col, cap_col,
 
 
 def main():
+    if not os.path.exists(EXTRACT_DIR):
+        logger.error(f"Dataset directory not found: {EXTRACT_DIR}")
+        return
+
     xlsx_files = sorted(glob.glob(os.path.join(EXTRACT_DIR, "*.xlsx")))
-    logger.info(f"Found {len(xlsx_files)} CALCE A123 cycling files")
+    logger.info(f"Found {len(xlsx_files)} CALCE A123 cycling files in {EXTRACT_DIR}")
 
     f_o2s, f_s2o = load_onori_lfp_gitt()
     if f_o2s is None:
