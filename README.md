@@ -35,11 +35,11 @@ This repository provides the complete, reproducible implementation of the **Micr
 
 | Metric | Target | Achieved | Status |
 |--------|--------|----------|--------|
-| Student MAE (case split) | 0.474% | 0.536% | ✓ within target |
+| Student MAE (nominal case split) | 0.474% | 0.536% | ✓ within target |
 | Student RMSE | 1.182% | 1.492% | ✓ acceptable |
 | Student R² | 0.9987 | 0.9980 | ✓ within target |
-| Unseen Cell YX07 MAE | < 4.30% | 2.48% | ✓ 42.3% better |
-| Unseen Cell YX08 MAE | < 4.30% | 3.35% | ✓ 22.1% better |
+| Unseen Cell YX07 MAE | < 4.30% | 2.59% | ✓ 39.8% better |
+| Unseen Cell YX08 MAE | < 4.30% | 3.54% | ✓ 17.7% better |
 | AFE Noise (±5 mV) MAE | 1.456% | 1.343% | ✓ better than target |
 | CDF ≤ 2.0% | 95.02% | 93.83% | ✓ acceptable |
 | Flash footprint | < 16 kB | 3.75 kB | ✓ 99.7% compression |
