@@ -99,6 +99,7 @@ pip install pandas scikit-learn scipy matplotlib openpyxl lightgbm torch --index
 
 ```bash
 cd comparison_models
+python extract_calce_a123.py
 python run_microphys_both.py
 ```
 
