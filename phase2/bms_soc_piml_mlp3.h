@@ -2,9 +2,9 @@
  * ================================================================================================
  * AUTONOMOUS EMBEDDED BATTERY MANAGEMENT SYSTEM (BMS) - STATE-OF-CHARGE ESTIMATOR
  * Publication: IEEE Transactions on Transportation Electrification (IEEE TTE, 2026)
- * Target: ARM Cortex-M4 / Infineon AURIX TC3xx / NXP S32K (ISO 26262 ASIL-D Compliant)
+ * Target: ARM Cortex-M4 / Infineon AURIX TC3xx / NXP S32K (ISO 26262 ASIL-D Ready)
  * Model Architecture: Physics-Informed Micro-MLP (12 -> 32 -> 16 -> 1) | 961 FP32 Parameters
- * Memory Footprint: 3.75 kB Flash, 192 Bytes SRAM | Latency: ~12 us @ 160 MHz
+ * Memory Footprint: 3.85 kB Flash ROM (3940 Bytes), 192 Bytes SRAM | Latency: ~12 us @ 160 MHz
  * MISRA-C:2012 Compliant: Zero Dynamic Allocation (malloc), Constant Execution Graph
  * ================================================================================================
  */
