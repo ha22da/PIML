@@ -12,7 +12,7 @@ Architecture (per Chen et al. 2024):
 - Input: 9-D raw telemetry (each feature = 1 token)
 - Output: 1 (SOC)
 
-This is a REAL execution - no synthetic numbers.
+Fully compatible with Windows paths and GitHub reproducible workflows.
 """
 import os, sys, json, logging
 import numpy as np
@@ -20,7 +20,6 @@ import pandas as pd
 import torch
 import torch.nn as nn
 import torch.optim as optim
-import torch.nn.functional as F
 from torch.utils.data import DataLoader, TensorDataset
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
@@ -30,6 +29,10 @@ logging.basicConfig(level=logging.INFO, format="[%(asctime)s] [%(levelname)s] %(
 logger = logging.getLogger("Transformer")
 
 RAW_FEATURE_COLS = ['t', 'V_mea', 'SOC_mea', 'V_10', 'I_m', 'R', 'I_flag', 'T_env', 'dT']
+
+# Determine repository root relative to this script (comparison_models/)
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+REPO_ROOT = os.path.abspath(os.path.join(CURRENT_DIR, ".."))
 
 
 class SOC_Transformer(nn.Module):
@@ -198,14 +201,21 @@ if __name__ == "__main__":
     torch.manual_seed(42)
     np.random.seed(42)
 
+    # Dynamic paths pointing to GitHub results directories
+    stanford_csv = os.path.join(REPO_ROOT, "results", "datasets", "stanford_25c", "features.csv")
+    stanford_out = os.path.join(REPO_ROOT, "results", "transformer", "stanford_25c")
+
+    calce_csv = os.path.join(REPO_ROOT, "results", "datasets", "calce_a123", "features.csv")
+    calce_out = os.path.join(REPO_ROOT, "results", "transformer", "calce_a123")
+
     # Stanford LFP 25C
     print("\n" + "=" * 70)
     print("RUNNING TRANSFORMER ON STANFORD LFP (25°C)")
     print("=" * 70)
     r1 = train_transformer_on_csv(
-        "/home/z/my-project/results/datasets/stanford_25c/features.csv",
+        stanford_csv,
         "Stanford_LFP_25C",
-        "/home/z/my-project/results/transformer/stanford_25c",
+        stanford_out,
         n_epochs=300
     )
 
@@ -214,9 +224,9 @@ if __name__ == "__main__":
     print("RUNNING TRANSFORMER ON CALCE A123 LFP")
     print("=" * 70)
     r2 = train_transformer_on_csv(
-        "/home/z/my-project/results/datasets/calce_a123/features.csv",
+        calce_csv,
         "CALCE_A123_LFP",
-        "/home/z/my-project/results/transformer/calce_a123",
+        calce_out,
         n_epochs=300
     )
 
