@@ -18,7 +18,7 @@ Architecture: Ensemble of 5 LightGBM regressors (different random seeds) average
 - Min child samples: 20
 - L1 (alpha) and L2 (lambda) regularization
 
-This is a REAL execution - no synthetic numbers.
+Fully compatible with Windows paths and GitHub reproducible workflows.
 """
 import os, sys, json, logging
 import numpy as np
@@ -32,6 +32,10 @@ logging.basicConfig(level=logging.INFO, format="[%(asctime)s] [%(levelname)s] %(
 logger = logging.getLogger("LightGBM")
 
 RAW_FEATURE_COLS = ['t', 'V_mea', 'SOC_mea', 'V_10', 'I_m', 'R', 'I_flag', 'T_env', 'dT']
+
+# Determine repository root relative to this script (comparison_models/)
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+REPO_ROOT = os.path.abspath(os.path.join(CURRENT_DIR, ".."))
 
 
 def train_lightgbm_on_csv(csv_path, dataset_name, out_dir):
@@ -90,7 +94,6 @@ def train_lightgbm_on_csv(csv_path, dataset_name, out_dir):
         preds_test.append(p_test)
         preds_train.append(p_train)
         total_trees += model.n_estimators
-        # Estimate parameters: ~num_leaves * n_trees
         total_params += model.n_estimators * 63  # rough estimate
 
     # Ensemble prediction (average)
@@ -123,7 +126,6 @@ def train_lightgbm_on_csv(csv_path, dataset_name, out_dir):
     # Noise robustness test
     np.random.seed(42)
     X_test_noisy = X_test.copy()
-    # Add 5 mV noise to V_mea (column 1)
     X_test_noisy[:, 1] = X_test_noisy[:, 1] + np.random.normal(0, 0.005, size=len(X_test_noisy))
     preds_noisy = [m.predict(X_test_noisy) for m in models]
     p_noisy = np.clip(np.mean(preds_noisy, axis=0), 0, 1)
@@ -156,14 +158,21 @@ def train_lightgbm_on_csv(csv_path, dataset_name, out_dir):
 if __name__ == "__main__":
     np.random.seed(42)
 
+    # Dynamic paths pointing to GitHub datasets & results directories
+    stanford_csv = os.path.join(REPO_ROOT, "results", "datasets", "stanford_25c", "features.csv")
+    stanford_out = os.path.join(REPO_ROOT, "results", "lightgbm", "stanford_25c")
+
+    calce_csv = os.path.join(REPO_ROOT, "results", "datasets", "calce_a123", "features.csv")
+    calce_out = os.path.join(REPO_ROOT, "results", "lightgbm", "calce_a123")
+
     # Stanford LFP 25C
     print("\n" + "=" * 70)
     print("RUNNING LIGHTGBM ENSEMBLE ON STANFORD LFP (25°C)")
     print("=" * 70)
     r1 = train_lightgbm_on_csv(
-        "/home/z/my-project/results/datasets/stanford_25c/features.csv",
+        stanford_csv,
         "Stanford_LFP_25C",
-        "/home/z/my-project/results/lightgbm/stanford_25c"
+        stanford_out
     )
 
     # CALCE A123
@@ -171,9 +180,9 @@ if __name__ == "__main__":
     print("RUNNING LIGHTGBM ENSEMBLE ON CALCE A123 LFP")
     print("=" * 70)
     r2 = train_lightgbm_on_csv(
-        "/home/z/my-project/results/datasets/calce_a123/features.csv",
+        calce_csv,
         "CALCE_A123_LFP",
-        "/home/z/my-project/results/lightgbm/calce_a123"
+        calce_out
     )
 
     # Summary
