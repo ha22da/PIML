@@ -11,7 +11,7 @@ Architecture (per the original PINN formulation):
 - Output: 1 (SOC in [0, 1])
 - Physics loss: enforces OCV-SOC relationship and SOC bounds
 
-This is a REAL execution - no synthetic numbers.
+Fully compatible with Windows paths and GitHub reproducible workflows.
 """
 import os, sys, json, logging
 import numpy as np
@@ -27,8 +27,11 @@ from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 logging.basicConfig(level=logging.INFO, format="[%(asctime)s] [%(levelname)s] %(message)s", datefmt="%H:%M:%S")
 logger = logging.getLogger("PINN")
 
-# Use the same RAW_FEATURE_COLS as the proposed model for fair comparison
 RAW_FEATURE_COLS = ['t', 'V_mea', 'SOC_mea', 'V_10', 'I_m', 'R', 'I_flag', 'T_env', 'dT']
+
+# Determine repository root relative to this script (comparison_models/)
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+REPO_ROOT = os.path.abspath(os.path.join(CURRENT_DIR, ".."))
 
 
 class PINN_SOC(nn.Module):
@@ -53,7 +56,6 @@ def physics_loss(pred, v_mea, soc_mea):
     2. Smoothness: penalize large jumps in consecutive predictions
     3. Voltage consistency: predicted SOC should be consistent with measured voltage
     """
-    # Boundary penalty
     l_bounds = torch.mean(torch.relu(-pred)**2 + torch.relu(pred - 1.0)**2)
     return l_bounds
 
@@ -113,11 +115,9 @@ def train_pinn_on_csv(csv_path, dataset_name, out_dir, n_epochs=300):
         for bx, by in loader:
             optimizer.zero_grad()
             pred = model(bx)
-            # Task loss (Huber)
             l_task = criterion(pred, by)
-            # Physics: boundary penalty
-            v_mea_batch = bx[:, 1]  # V_mea column
-            soc_mea_batch = bx[:, 2]  # SOC_mea column
+            v_mea_batch = bx[:, 1]
+            soc_mea_batch = bx[:, 2]
             l_phys = physics_loss(pred, v_mea_batch, soc_mea_batch)
             loss = l_task + 0.01 * l_phys
             loss.backward()
@@ -144,7 +144,6 @@ def train_pinn_on_csv(csv_path, dataset_name, out_dir, n_epochs=300):
     with torch.no_grad():
         p_final = np.clip(model(X_te).numpy().squeeze(), 0, 1)
 
-    # Use best model's predictions
     if best_pred is not None and best_mae < mean_absolute_error(y_test * 100, p_final * 100):
         p_final = best_pred
 
@@ -185,12 +184,11 @@ def train_pinn_on_csv(csv_path, dataset_name, out_dir, n_epochs=300):
     results['cdf_3pct'] = float(np.mean(abs_err <= 3.0) * 100)
     print(f"  • CDF <=1% : {results['cdf_1pct']:.2f}%  <=2% : {results['cdf_2pct']:.2f}%  <=3% : {results['cdf_3pct']:.2f}%")
 
-    # Save predictions for plotting
+    # Save predictions
     test_df = test_df.copy()
     test_df['SOC_pred_pinn'] = p_final
     test_df.to_csv(os.path.join(out_dir, 'predictions.csv'), index=False)
 
-    # Save results
     with open(os.path.join(out_dir, 'results.json'), 'w') as f:
         json.dump(results, f, indent=2)
     logger.info(f"Results saved to: {out_dir}")
@@ -198,18 +196,24 @@ def train_pinn_on_csv(csv_path, dataset_name, out_dir, n_epochs=300):
 
 
 if __name__ == "__main__":
-    # Set seed for reproducibility
     torch.manual_seed(42)
     np.random.seed(42)
+
+    # Dynamic paths pointing to GitHub datasets & results directories
+    stanford_csv = os.path.join(REPO_ROOT, "results", "datasets", "stanford_25c", "features.csv")
+    stanford_out = os.path.join(REPO_ROOT, "results", "pinn", "stanford_25c")
+
+    calce_csv = os.path.join(REPO_ROOT, "results", "datasets", "calce_a123", "features.csv")
+    calce_out = os.path.join(REPO_ROOT, "results", "pinn", "calce_a123")
 
     # Stanford LFP 25C
     print("\n" + "=" * 70)
     print("RUNNING PINN ON STANFORD LFP (25°C)")
     print("=" * 70)
     r1 = train_pinn_on_csv(
-        "/home/z/my-project/results/datasets/stanford_25c/features.csv",
+        stanford_csv,
         "Stanford_LFP_25C",
-        "/home/z/my-project/results/pinn/stanford_25c",
+        stanford_out,
         n_epochs=300
     )
 
@@ -218,9 +222,9 @@ if __name__ == "__main__":
     print("RUNNING PINN ON CALCE A123 LFP")
     print("=" * 70)
     r2 = train_pinn_on_csv(
-        "/home/z/my-project/results/datasets/calce_a123/features.csv",
+        calce_csv,
         "CALCE_A123_LFP",
-        "/home/z/my-project/results/pinn/calce_a123",
+        calce_out,
         n_epochs=300
     )
 
