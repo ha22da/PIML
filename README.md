@@ -8,7 +8,7 @@
 
 > **Official companion repository for the IEEE Transactions on Transportation Electrification (TTE) submission:**
 >
-> *Physics-Informed Knowledge Distillation for Real-Time State-of-Charge Estimation of LiFePO₄ Batteries on Automotive Microcontrollers*
+> *Physics-Guided Knowledge Distillation for Real-Time State-of-Charge Correction of LiFePO₄ Batteries on Automotive Microcontrollers*
 >
 > **Hamid Daneshvar** (Student Member, IEEE) and **Masoud Masih-Tehrani** (Member, IEEE)
 >
