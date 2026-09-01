@@ -1,4 +1,4 @@
-# MicroPhys-BMS: Physics-Informed Knowledge Distillation for Real-Time SOC Estimation of LFP Batteries
+# MicroPhys-BMS: Physics-Guided Knowledge Distillation for Real-Time State-of-Charge Correction of LiFePO4 Batteries on Automotive Microcontrollers
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![IEEE TTE](https://img.shields.io/badge/IEEE-TTE-blue.svg)](https://ieee-tte.org/)
